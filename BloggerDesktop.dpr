@@ -10,7 +10,8 @@ uses
   main in 'main.pas' {frmMain},
   Vcl.Themes,
   Vcl.Styles,
-  BloggerDesktop.ChatGPT in 'BloggerDesktop.ChatGPT.pas' {Frame1: TFrame};
+  BloggerDesktop.ChatGPT in 'BloggerDesktop.ChatGPT.pas' {Frame1: TFrame},
+  helpers in 'helpers.pas';
 
 {$R *.res}
 
