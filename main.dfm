@@ -12,6 +12,7 @@ object frmMain: TfrmMain
   Font.Style = []
   Menu = MainMenu1
   OnCreate = FormCreate
+  OnDestroy = FormDestroy
   TextHeight = 15
   object Splitter1: TSplitter
     Left = 770
@@ -30,6 +31,8 @@ object frmMain: TfrmMain
     Height = 746
     Align = alClient
     TabOrder = 0
+    ExplicitWidth = 764
+    ExplicitHeight = 737
     object WVWindowParent1: TWVWindowParent
       Left = 1
       Top = 1
@@ -39,6 +42,8 @@ object frmMain: TfrmMain
       Color = clBackground
       TabOrder = 0
       Browser = WVBrowser1
+      ExplicitWidth = 762
+      ExplicitHeight = 735
     end
   end
   object pnlTools: TPanel
@@ -48,24 +53,46 @@ object frmMain: TfrmMain
     Height = 746
     Align = alRight
     TabOrder = 1
+    ExplicitLeft = 769
+    ExplicitHeight = 737
     object pcTools: TPageControl
       Left = 1
       Top = 1
       Width = 608
       Height = 744
-      ActivePage = tsOpenAI
+      ActivePage = tsPictures
       Align = alClient
       TabOrder = 0
+      ExplicitHeight = 735
       object tsPictures: TTabSheet
         Caption = 'Pictures'
-        object Panel1: TPanel
+        object pnlClipwatcher: TPanel
           Left = 0
-          Top = 0
+          Top = 456
           Width = 600
-          Height = 41
-          Align = alTop
-          Caption = 'Panel1'
+          Height = 63
+          Align = alBottom
+          Caption = 'Save from clipboard here '#55357#56390#55356#57339#55357#56390#55356#57339#55357#56390#55356#57339' '
           TabOrder = 0
+          Visible = False
+          object btnSaveClipJPG: TButton
+            Left = 25
+            Top = 24
+            Width = 75
+            Height = 25
+            Caption = #55357#56510'JPG'
+            TabOrder = 0
+            OnClick = btnSaveClipJPGClick
+          end
+          object btnSaveClipPNG: TButton
+            Left = 113
+            Top = 24
+            Width = 75
+            Height = 25
+            Caption = #55357#56510'PNG'
+            TabOrder = 1
+            OnClick = btnSaveClipPNGClick
+          end
         end
         object Panel2: TPanel
           Left = 0
@@ -75,6 +102,7 @@ object frmMain: TfrmMain
           Align = alBottom
           Caption = 'Panel2'
           TabOrder = 1
+          ExplicitTop = 510
           object ScrollBox1: TScrollBox
             Left = 1
             Top = 1
@@ -100,7 +128,7 @@ object frmMain: TfrmMain
         end
         object rkSmartPath1: TrkSmartPath
           Left = 0
-          Top = 41
+          Top = 0
           Width = 600
           Height = 25
           Align = alTop
@@ -129,16 +157,18 @@ object frmMain: TfrmMain
           ParentBackground = False
           ParentFont = False
           Path = 'C:\Users\vhanl\Pictures\'
+          ShowNewFolder = False
           SpecialFolders = [spDesktop, spDocuments]
           TabOrder = 2
           Transparent = True
           OnPathChanged = rkSmartPath1PathChanged
+          ExplicitTop = 41
         end
         object VirtualMultiPathExplorerEasyListview1: TVirtualMultiPathExplorerEasyListview
           Left = 0
-          Top = 66
+          Top = 25
           Width = 600
-          Height = 453
+          Height = 431
           Align = alClient
           CellSizes.ReportThumb.Height = 112
           CellSizes.ReportThumb.Width = 94
@@ -176,6 +206,8 @@ object frmMain: TfrmMain
           OnItemClick = VirtualMultiPathExplorerEasyListview1ItemClick
           OnItemDblClick = VirtualMultiPathExplorerEasyListview1ItemDblClick
           OnMouseDown = VirtualMultiPathExplorerEasyListview1MouseDown
+          ExplicitTop = 66
+          ExplicitHeight = 444
         end
       end
       object tsOpenAI: TTabSheet
@@ -269,6 +301,15 @@ object frmMain: TfrmMain
           TabOrder = 2
           OnClick = Button1Click
         end
+        object btnSaveSettings: TButton
+          Left = 424
+          Top = 648
+          Width = 97
+          Height = 33
+          Caption = 'Save Settings'
+          TabOrder = 3
+          OnClick = btnSaveSettingsClick
+        end
       end
     end
   end
@@ -278,6 +319,8 @@ object frmMain: TfrmMain
     Width = 1385
     Height = 19
     Panels = <>
+    ExplicitTop = 737
+    ExplicitWidth = 1379
   end
   object WVBrowser1: TWVBrowser
     TargetCompatibleBrowserVersion = '106.0.1370.28'
@@ -322,8 +365,29 @@ object frmMain: TfrmMain
     Left = 688
     Top = 408
   end
-  object OpenDialog1: TOpenDialog
-    Left = 968
-    Top = 296
+  object Settings: TJvAppIniFileStorage
+    StorageOptions.BooleanStringTrueValues = 'TRUE, YES, Y'
+    StorageOptions.BooleanStringFalseValues = 'FALSE, NO, N'
+    FileName = 'settings.ini'
+    DefaultSection = 'General'
+    SubStorages = <>
+    Left = 624
+    Top = 240
+  end
+  object ActionList1: TActionList
+    Left = 848
+    Top = 232
+    object EditPaste1: TEditPaste
+      Category = 'Edit'
+      Caption = '&Paste'
+      Hint = 'Paste|Inserts Clipboard contents'
+      ImageIndex = 2
+      ShortCut = 16470
+      OnExecute = EditPaste1Execute
+    end
+  end
+  object SavePictureDialog1: TSavePictureDialog
+    Left = 712
+    Top = 144
   end
 end

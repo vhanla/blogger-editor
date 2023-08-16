@@ -7,12 +7,13 @@ uses
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ExtCtrls, Vcl.ComCtrls,
   uWVWinControl, uWVWindowParent, Vcl.Menus,
   uWVBrowserBase, uWVBrowser, uWVLoader, uWVCoreWebView2Args, uWVTypeLibrary,
-  VirtualTrees, VirtualExplorerTree, ES.BaseControls, ES.Images, pngimage, jpeg, gifimg,
+  VirtualTrees, VirtualExplorerTree, ES.BaseControls, ES.Images, pngimage, jpeg, gifimg, dwsTurboJPEG, LibTurboJPEG, dwsJPEGEncoderOptions,
   rkPathViewer, rkSmartPath, DropSource, DragDropFile, Vcl.StdCtrls,
   HGM.Controls.Chat, JvDockTree, JvDockControlForm, JvDockDelphiStyle,
   JvComponentBase, BloggerDesktop.ChatGPT, JvDockVIDStyle, JvDockVSNetStyle,
   MPCommonObjects, EasyListview, VirtualExplorerEasyListview, MPCommonUtilities, DragDrop,
-  JvAppEvent, Vcl.Mask;
+  JvAppEvent, Vcl.Mask, JvAppStorage, JvAppIniStorage, System.Actions,
+  Vcl.ActnList, Vcl.StdActns, Vcl.ExtDlgs;
 
 type
   TfrmMain = class(TForm)
@@ -27,7 +28,7 @@ type
     MainMenu1: TMainMenu;
     File1: TMenuItem;
     Timer1: TTimer;
-    Panel1: TPanel;
+    pnlClipwatcher: TPanel;
     Panel2: TPanel;
     ScrollBox1: TScrollBox;
     EsImage1: TEsImage;
@@ -43,7 +44,13 @@ type
     lbedBlogsPath: TLabeledEdit;
     CheckBox1: TCheckBox;
     Button1: TButton;
-    OpenDialog1: TOpenDialog;
+    Settings: TJvAppIniFileStorage;
+    btnSaveSettings: TButton;
+    ActionList1: TActionList;
+    EditPaste1: TEditPaste;
+    btnSaveClipJPG: TButton;
+    btnSaveClipPNG: TButton;
+    SavePictureDialog1: TSavePictureDialog;
     procedure FormCreate(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
     procedure WVBrowser1AfterCreated(Sender: TObject);
@@ -76,17 +83,33 @@ type
     procedure WVBrowser1WebMessageReceived(Sender: TObject;
       const aWebView: ICoreWebView2;
       const aArgs: ICoreWebView2WebMessageReceivedEventArgs);
+    procedure btnSaveSettingsClick(Sender: TObject);
+    procedure EditPaste1Execute(Sender: TObject);
+    procedure FormDestroy(Sender: TObject);
+    procedure btnSaveClipJPGClick(Sender: TObject);
+    procedure btnSaveClipPNGClick(Sender: TObject);
   private
     { Private declarations }
     FGetHeaders: Boolean;
     FSelectedFile: string;
+    FCurrentURL: string;
+    // Settings
+    FBlogsPath: string;
+    FBlogDomain: string;
+
     procedure UpdateList(APath: string);
+
+    procedure GetClipboard(var Msg: TMessage); message WM_DRAWCLIPBOARD;
+    procedure ChangeCBChain(var Msg: TMessage); message WM_CHANGECBCHAIN;
   public
     { Public declarations }
+    property BlogsPath: string read FBlogsPath;
+    property BlogDomain: string read FBlogDomain;
   end;
 
 var
   frmMain: TfrmMain;
+  ClipNext: THandle;
 
 function RtlGetVersion(var RTL_OSVERSIONINFOEXW): LONG; stdcall;
   external 'ntdll.dll' Name 'RtlGetVersion';
@@ -95,11 +118,11 @@ implementation
 
 uses
   Winapi.DwmApi, MPShellUtilities, Winapi.ShlObj, Winapi.ShellAPI, Winapi.ActiveX,
-  uWVCoreWebView2WindowFeatures, uWVTypes,
+  uWVCoreWebView2WindowFeatures, uWVTypes, Clipbrd, System.JSON,
   uWVCoreWebView2WebResourceResponseView, uWVCoreWebView2HttpResponseHeaders,
   uWVCoreWebView2HttpHeadersCollectionIterator,
   uWVCoreWebView2ProcessInfoCollection, uWVCoreWebView2ProcessInfo,
-  uWVCoreWebView2Delegates;
+  uWVCoreWebView2Delegates, helpers;
 
 {$R *.dfm}
 
@@ -112,6 +135,120 @@ begin
     Result := True;
 end;
 
+
+procedure TfrmMain.btnSaveClipJPGClick(Sender: TObject);
+var
+  outbuf: Pointer;
+  outSize: Cardinal;
+  fs: TFileStream;
+  bmp: TBitmap;
+begin
+  with SavePictureDialog1 do
+  begin
+    InitialDir := rkSmartPath1.Path;
+    Filter := 'JPEG|*.jpg';
+    if Execute then
+    begin
+      if ExtractFileExt(LowerCase(FileName)) <> '.jpg' then
+        FileName := FileName + '.jpg';
+//      EsImage1.Picture.SaveToFile(FileName);
+      pnlClipwatcher.Visible := False;
+
+      bmp := TBitmap.Create;
+      try
+        bmp.PixelFormat := pf24bit;
+        bmp.Width := EsImage1.Picture.Width;
+        bmp.Height := EsImage1.Picture.Height;
+        bmp.Canvas.Draw(0, 0, EsImage1.Picture.Graphic);
+//        bmp.Assign(EsImage1.Picture.Bitmap);
+
+        var format := TJPF.TJPF_UNKNOWN;
+        case bmp.PixelFormat of
+          pfDevice: format := TJPF.TJPF_RGBX;
+          pf1bit: ;
+          pf4bit: ;
+          pf8bit: ;
+          pf15bit: ;
+          pf16bit: ;
+          pf24bit: format := TJPF.TJPF_BGR;
+          pf32bit: format := TJPF.TJPF_BGRA;
+          pfCustom: ;
+        end;
+        if format <> TJPF.TJPF_UNKNOWN then
+        begin
+          var jpeg := TJ.InitCompress;
+          try
+            outbuf := nil;
+            outSize := 0;
+            var pitch := 0;
+            if bmp.Height > 1 then
+              pitch := IntPtr(bmp.ScanLine[1]) - IntPtr(bmp.ScanLine[0]);
+            if pitch > 0 then
+            begin
+              if TJ.Compress2(jpeg, bmp.ScanLine[0], bmp.Width, pitch, bmp.Height, format,
+                              @outbuf, @outsize, TJSAMP_420, 80, TJFLAG_PROGRESSIVE) <> 0 then
+                RaiseLastTurboJPEGError(jpeg);
+            end
+            else
+            begin
+              if TJ.Compress2(jpeg, bmp.ScanLine[bmp.Height - 1], bmp.Width, -pitch, bmp.Height, format,
+                              @outbuf, @outsize, TJSAMP_420, 80, TJFLAG_PROGRESSIVE or TJFLAG_BOTTOMUP) <> 0 then
+              RaiseLastTurboJPEGError(jpeg);
+            end;
+            try
+              //
+              fs := TFileStream.Create(FileName, fmCreate);
+              try
+                fs.WriteBuffer(outbuf^, outsize);
+              finally
+                fs.Free;
+              end;
+            finally
+              TJ.Free(outBuf);
+            end;
+
+          finally
+            TJ.Destroy(jpeg);
+          end;
+        end;
+      finally
+        bmp.Free;
+      end;
+
+      // refresh the list
+      rkSmartPath1PathChanged(Sender);
+    end;
+  end;
+end;
+
+procedure TfrmMain.btnSaveClipPNGClick(Sender: TObject);
+begin
+  with SavePictureDialog1 do
+  begin
+    InitialDir := rkSmartPath1.Path;
+    Filter := 'PNG|*.png';
+    if Execute then
+    begin
+      var png := TPngImage.Create;
+      try
+        png.Assign(EsImage1.Picture);
+        if ExtractFileExt(LowerCase(FileName)) <> '.png' then
+          FileName := FileName + '.png';
+        png.SaveToFile(FileName);
+        pnlClipwatcher.Visible := False;
+      finally
+        png.Free;
+      end;
+      // refresh the list
+      rkSmartPath1PathChanged(Sender);
+    end;
+  end;
+end;
+
+procedure TfrmMain.btnSaveSettingsClick(Sender: TObject);
+begin
+  Settings.WriteString('blogspath', lbedBlogsPath.Text);
+end;
 
 procedure TfrmMain.Button1Click(Sender: TObject);
 begin
@@ -126,6 +263,32 @@ begin
   finally
     Free;
   end;
+end;
+
+procedure TfrmMain.ChangeCBChain(var Msg: TMessage);
+var
+  remove, next: THandle;
+begin
+  remove := Msg.WParam;
+  next := Msg.LParam;
+
+  with Msg do
+  begin
+    if ClipNext = remove then
+      ClipNext := next
+    else if ClipNext <> 0 then
+      SendMessage(ClipNext, WM_CHANGECBCHAIN, remove, next);
+  end;
+end;
+
+procedure TfrmMain.EditPaste1Execute(Sender: TObject);
+begin
+  if Clipboard.HasFormat(CF_BITMAP) then
+  begin
+    EsImage1.Picture.Assign(Clipboard);
+    pnlClipwatcher.Visible := True;
+  end;
+
 end;
 
 procedure TfrmMain.EsImage1MouseDown(Sender: TObject; Button: TMouseButton;
@@ -168,6 +331,35 @@ begin
   end;
 
   UpdateList(rkSmartPath1.Path);
+
+  FBlogsPath := Settings.ReadString('blogspath', '');
+  lbedBlogsPath.Text := BlogsPath;
+
+  // Load Turbo-JPEG
+  LoadTurboJPEG;
+  // Let's watch the clipboard
+  ClipNext := SetClipboardViewer(Handle);
+end;
+
+procedure TfrmMain.FormDestroy(Sender: TObject);
+begin
+  ChangeClipboardChain(Handle, ClipNext);
+end;
+
+procedure TfrmMain.GetClipboard(var Msg: TMessage);
+begin
+  if Clipboard.HasFormat(CF_TEXT) then
+  begin
+
+  end
+  else if Clipboard.HasFormat(CF_BITMAP) then //or Clipboard.HasFormat(CF_PICTURE) then
+  begin
+    EsImage1.Picture.Assign(Clipboard);
+    pnlClipwatcher.Visible := True;
+  end;
+
+  if ClipNext <> 0 then
+    SendMessage(ClipNext, WM_DRAWCLIPBOARD, 0, 0);
 end;
 
 procedure TfrmMain.JvAppEvents1Activate(Sender: TObject);
@@ -300,8 +492,17 @@ end;
 
 procedure TfrmMain.WVBrowser1DocumentTitleChanged(Sender: TObject);
 begin
-  Caption := PChar('Blogger Desktop 1.0 - ' + WVBrowser1.CoreWebView2.Source);
-  WVBrowser1.ExecuteScript('window.chrome.webview.postMessage(document.querySelectorAll(''div[role="presentation"]>a'')[document.querySelectorAll(''div[role="presentation"]>a'').length-1].href)');
+  FCurrentURL := WVBrowser1.CoreWebView2.Source;
+  Caption := PChar('Blogger Desktop 1.0 - ' + FCurrentURL);
+  // Query for the blog publisher domain
+WVBrowser1.ExecuteScript(
+  'window.chrome.webview.postMessage(JSON.stringify({' +
+  '"type": "blogURL",' +
+  '"msg": document.querySelectorAll(''div[role="presentation"]>a'')[' +
+  'document.querySelectorAll(''div[role="presentation"]>a'').length - 1].href' +
+  '}));'
+);
+
 end;
 
 procedure TfrmMain.WVBrowser1DOMContentLoaded(Sender: TObject;
@@ -450,14 +651,51 @@ procedure TfrmMain.WVBrowser1WebMessageReceived(Sender: TObject;
   const aArgs: ICoreWebView2WebMessageReceivedEventArgs);
 var
   tmp: TCoreWebView2WebMessageReceivedEventArgs;
-  url: string;
+  url, finalPath: string;
+  json: TJSONObject;
 begin
   tmp := TCoreWebView2WebMessageReceivedEventArgs.Create(aArgs);
   try
     url := tmp.WebMessageAsString;
-//    if url.StartsWith('http') then
-    begin
-      lbedBlogsPath.Text := url;
+    finalPath := '';
+
+    json := TJSONObject.Create;
+    try
+      if json.Parse(BytesOf(url), 0) > 0 then // valid json
+      begin
+        if json.Values['type'].Value = 'blogURL' then
+        begin
+          FBlogDomain := ExtractDomainFromURL(json.Values['msg'].Value);
+          if DirectoryExists(BlogsPath) then
+          begin
+            if not DirectoryExists(IncludeTrailingPathDelimiter(BlogsPath) + BlogDomain) then
+            begin
+              CreateDir(IncludeTrailingPathDelimiter(BlogsPath) + BlogDomain);
+            end;
+
+            if FCurrentURL.Contains('/blog/post/edit/') then
+            begin
+              var fs := TStringList.Create;
+              try
+                fs.Delimiter := '/';
+                fs.DelimitedText := FCurrentURL;
+                finalPath := fs[fs.Count - 1];
+
+                if not DirectoryExists(IncludeTrailingPathDelimiter(BlogsPath)+BlogDomain+'\'+finalPath) then
+                  CreateDir(IncludeTrailingPathDelimiter(BlogsPath)+BlogDomain+'\'+finalPath);
+              finally
+                fs.Free;
+              end;
+            end;
+            //
+            if finalPath <> '' then
+              rkSmartPath1.Path := IncludeTrailingPathDelimiter(BlogsPath) + BlogDomain + '\' + finalPath;
+          end;
+        end;
+      end;
+
+    finally
+      json.Free;
     end;
 
   finally
