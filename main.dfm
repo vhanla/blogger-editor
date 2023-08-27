@@ -63,18 +63,18 @@ object frmMain: TfrmMain
       ActivePage = tsPictures
       Align = alClient
       TabOrder = 0
-      ExplicitHeight = 735
       object tsPictures: TTabSheet
-        Caption = 'Pictures'
+        Caption = 'Sources'
         object pnlClipwatcher: TPanel
           Left = 0
-          Top = 456
+          Top = 286
           Width = 600
           Height = 63
           Align = alBottom
           Caption = 'Save from clipboard here '#55357#56390#55356#57339#55357#56390#55356#57339#55357#56390#55356#57339' '
           TabOrder = 0
           Visible = False
+          ExplicitTop = 447
           object btnSaveClipJPG: TButton
             Left = 25
             Top = 24
@@ -96,7 +96,7 @@ object frmMain: TfrmMain
         end
         object Panel2: TPanel
           Left = 0
-          Top = 519
+          Top = 349
           Width = 600
           Height = 195
           Align = alBottom
@@ -162,13 +162,12 @@ object frmMain: TfrmMain
           TabOrder = 2
           Transparent = True
           OnPathChanged = rkSmartPath1PathChanged
-          ExplicitTop = 41
         end
         object VirtualMultiPathExplorerEasyListview1: TVirtualMultiPathExplorerEasyListview
           Left = 0
           Top = 25
           Width = 600
-          Height = 431
+          Height = 261
           Align = alClient
           CellSizes.ReportThumb.Height = 112
           CellSizes.ReportThumb.Width = 94
@@ -206,8 +205,36 @@ object frmMain: TfrmMain
           OnItemClick = VirtualMultiPathExplorerEasyListview1ItemClick
           OnItemDblClick = VirtualMultiPathExplorerEasyListview1ItemDblClick
           OnMouseDown = VirtualMultiPathExplorerEasyListview1MouseDown
-          ExplicitTop = 66
-          ExplicitHeight = 444
+          ExplicitHeight = 422
+        end
+        object pnlSources: TPanel
+          Left = 0
+          Top = 544
+          Width = 600
+          Height = 170
+          Align = alBottom
+          TabOrder = 4
+          object ValueListEditor1: TValueListEditor
+            Left = 1
+            Top = 1
+            Width = 598
+            Height = 168
+            Align = alClient
+            KeyOptions = [keyEdit, keyAdd, keyDelete, keyUnique]
+            Strings.Strings = (
+              '=')
+            TabOrder = 0
+            TitleCaptions.Strings = (
+              'URL'
+              'Title')
+            ExplicitLeft = 32
+            ExplicitTop = 32
+            ExplicitWidth = 249
+            ExplicitHeight = 156
+            ColWidths = (
+              150
+              442)
+          end
         end
       end
       object tsOpenAI: TTabSheet

@@ -13,7 +13,7 @@ uses
   JvComponentBase, BloggerDesktop.ChatGPT, JvDockVIDStyle, JvDockVSNetStyle,
   MPCommonObjects, EasyListview, VirtualExplorerEasyListview, MPCommonUtilities, DragDrop,
   JvAppEvent, Vcl.Mask, JvAppStorage, JvAppIniStorage, System.Actions,
-  Vcl.ActnList, Vcl.StdActns, Vcl.ExtDlgs;
+  Vcl.ActnList, Vcl.StdActns, Vcl.ExtDlgs, Vcl.Grids, Vcl.ValEdit;
 
 type
   TfrmMain = class(TForm)
@@ -51,6 +51,8 @@ type
     btnSaveClipJPG: TButton;
     btnSaveClipPNG: TButton;
     SavePictureDialog1: TSavePictureDialog;
+    pnlSources: TPanel;
+    ValueListEditor1: TValueListEditor;
     procedure FormCreate(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
     procedure WVBrowser1AfterCreated(Sender: TObject);
@@ -347,10 +349,21 @@ begin
 end;
 
 procedure TfrmMain.GetClipboard(var Msg: TMessage);
+var
+  tmpText: string;
 begin
   if Clipboard.HasFormat(CF_TEXT) then
   begin
+    try
+      tmpText := Trim(Clipboard.AsText);
+      if tmpText.StartsWith('http') and not tmpText.Contains(' ') then
+      begin
+        if ValueListEditor1.Strings.IndexOfName(tmpText) = -1 then
+          ValueListEditor1.InsertRow(tmpText, '', False);
+      end;
+    except
 
+    end;
   end
   else if Clipboard.HasFormat(CF_BITMAP) then //or Clipboard.HasFormat(CF_PICTURE) then
   begin
