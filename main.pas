@@ -1,4 +1,4 @@
-unit main;
+﻿unit main;
 
 interface
 
@@ -25,8 +25,6 @@ type
     WVWindowParent1: TWVWindowParent;
     Splitter1: TSplitter;
     StatusBar1: TStatusBar;
-    MainMenu1: TMainMenu;
-    File1: TMenuItem;
     Timer1: TTimer;
     pnlClipwatcher: TPanel;
     Panel2: TPanel;
@@ -53,6 +51,10 @@ type
     SavePictureDialog1: TSavePictureDialog;
     pnlSources: TPanel;
     ValueListEditor1: TValueListEditor;
+    pnlNewURL: TPanel;
+    lbeNewURL: TLabeledEdit;
+    btnPasteURL: TButton;
+    btnDiscarPic: TButton;
     procedure FormCreate(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
     procedure WVBrowser1AfterCreated(Sender: TObject);
@@ -90,6 +92,8 @@ type
     procedure FormDestroy(Sender: TObject);
     procedure btnSaveClipJPGClick(Sender: TObject);
     procedure btnSaveClipPNGClick(Sender: TObject);
+    procedure btnPasteURLClick(Sender: TObject);
+    procedure btnDiscarPicClick(Sender: TObject);
   private
     { Private declarations }
     FGetHeaders: Boolean;
@@ -124,7 +128,7 @@ uses
   uWVCoreWebView2WebResourceResponseView, uWVCoreWebView2HttpResponseHeaders,
   uWVCoreWebView2HttpHeadersCollectionIterator,
   uWVCoreWebView2ProcessInfoCollection, uWVCoreWebView2ProcessInfo,
-  uWVCoreWebView2Delegates, helpers;
+  uWVCoreWebView2Delegates, helpers, DarkModeApi;
 
 {$R *.dfm}
 
@@ -137,6 +141,46 @@ begin
     Result := True;
 end;
 
+
+procedure TfrmMain.btnDiscarPicClick(Sender: TObject);
+begin
+  pnlClipwatcher.Hide;
+  EsImage1.Picture.Assign(nil);
+end;
+
+procedure TfrmMain.btnPasteURLClick(Sender: TObject);
+var
+  newURL: string;
+  newTitle: string;
+begin
+  newURL := Trim(lbeNewURL.Text);
+
+  if newURL.StartsWith('http') or newURL.StartsWith('HTTP') then
+  begin
+    if ValueListEditor1.Strings.IndexOfName(EncodeURL(newURL)) <> -1 then
+    begin
+      ShowMessage('Already in the list');
+      Exit;
+    end;
+
+    if MessageDlg('Get the Title from the URL page (HEAD)?', TMsgDlgType.mtConfirmation, mbYesNo, 0) = mrYes then
+    begin
+      newTitle := GetURLTitle(newURL, ValueListEditor1);
+    end
+    else
+    if InputQuery('Custom Title', 'Input a title for this URL', newTitle) then
+    begin
+
+    end;
+
+    if not newTitle.IsEmpty then
+    begin
+      ValueListEditor1.InsertRow(EncodeURL(newURL), newTitle, False);
+    end;
+  end
+  else
+    raise Exception.Create('not valid URL');
+end;
 
 procedure TfrmMain.btnSaveClipJPGClick(Sender: TObject);
 var
@@ -321,6 +365,9 @@ const
 
   DWMWA_WINDOW_CORNER_PREFERENCE = 33; // [set] WINDOW_CORNER_PREFERENCE, Controls the policy that rounds top-level window corners
 begin
+  if IsDarkMode then
+    AllowDarkModeForWindow(Handle, True);
+
   FGetHeaders := True;
 
   if isWindows11  then
@@ -349,6 +396,8 @@ begin
 end;
 
 procedure TfrmMain.GetClipboard(var Msg: TMessage);
+const
+  NOTEQUAL = '＝';
 var
   tmpText: string;
 begin
@@ -356,10 +405,13 @@ begin
   begin
     try
       tmpText := Trim(Clipboard.AsText);
+      //tmpText := StringReplace(tmpText, '=', NOTEQUAL, [rfReplaceAll]);
       if tmpText.StartsWith('http') and not tmpText.Contains(' ') then
       begin
-        if ValueListEditor1.Strings.IndexOfName(tmpText) = -1 then
-          ValueListEditor1.InsertRow(tmpText, '', False);
+//        if ValueListEditor1.Strings.IndexOfName(tmpText) = -1 then
+//          ValueListEditor1.InsertRow(tmpText, '', False);
+        lbeNewURL.Text := tmpText;
+        pnlNewURL.Show;
       end;
     except
 
@@ -446,6 +498,7 @@ begin
     begin
       EsImage1.Picture.LoadFromFile(fpath);
       FSelectedFile := fPath;
+      pnlClipwatcher.Hide;
     end;
   except
     EsImage1.Picture.Assign(nil);
@@ -522,102 +575,102 @@ procedure TfrmMain.WVBrowser1DOMContentLoaded(Sender: TObject;
   const aWebView: ICoreWebView2;
   const aArgs: ICoreWebView2DOMContentLoadedEventArgs);
 begin
-  WVBrowser1.ExecuteScript('( ' +
-  '  function(){ ' +
-  '    var style = document.createElement(''STYLE''); ' +
-  '    style.type = ''text/css''; ' +
-  '    style.innerHTML = ''@charset "utf-8";html{    background: #2a2c3c !important;' +
-  ' }html * { color: #bbb !important; border-width: 0 !important;  border-color: #2' +
-  'a2c3c !important; background: rgba(75,81,103,.1) !important; }html a, html a * { text-decorati' +
-  'on: underline !important; ;  color: #5c8599 !important; }html a:visited, html a:' +
-  'visited *, html a:active, html a:active * { color: #525f66 !important; }html a:h' +
-  'over, html a:hover * { color: #cef !important; background: #023 !important; } ht' +
-  'ml input, html select, html button, html textarea { border: 1px solid #5c5a46 !i' +
-  'mportant; border-top-color: #43485D !important; border-bottom-color: #43485D !im' +
-  'portant;  background: #4b5167 !important; }html input[type=button], html input[t' +
-  'ype=submit], html input[type=reset], html button { border-top-color: #43485D !im' +
-  'portant; border-bottom-color: #43485D !important; }html input:focus, html select' +
-  ':focus, html option:focus, html button:focus, html textarea:focus { color: #fff ' +
-  '!important; border-color: #43485D !important; outline: 2px solid #43485D !import' +
-  'ant;  background: #4b5167 !important; }html input[type=button]:focus, html input' +
-  '[type=submit]:focus, html input[type=reset]:focus, html button:focus { border-co' +
-  'lor: #43485D !important; }html input[type=button]:hover, html input[type=submit]' +
-  ':hover, html input[type=reset]:hover, html button:hover { background: #0781E0 !i' +
-  'mportant; border-color: #0781E0 !important; } html input[type=radio] { border-wi' +
-  'dth: 0 !important;  border-color: #333 !important; background: none !important; ' +
-  '} html, html body { scrollbar-base-color: #4d4c40 !important; scrollbar-face-col' +
-  'or: #5c5b3e !important; scrollbar-shadow-color: #5c5b3e !important; scrollbar-hi' +
-  'ghlight-color: #5c5b3e !important; scrollbar-dlight-color: #5c5b3e !important; s' +
-  'crollbar-darkshadow-color: #474531 !important; scrollbar-track-color: #4d4c40 !i' +
-  'mportant; scrollbar-arrow-color: #000 !important; scrollbar-3dlight-color: #7a79' +
-  '67 !important; }@media all and (-webkit-min-device-pixel-ratio:0) { html body * ' +
-  '{ -webkit-transition: color 1s ease-in, background-color 2s ease-out !important;' +
-  ' } html a, html textarea, html input, html select { -webkit-transition: color .4' +
-  's ease-in, background-color .4s ease-out !important; } html input:focus, html se' +
-  'lect:focus, html option:focus, html button:focus, html textarea:focus { outline-' +
-  'style: outset !important; } } .editable{background-color: #9197AE!important;}+' +
-  'body::-webkit-scrollbar-track' +
-                '{' +
-                '-webkit-box-shadow: inset 0 0 6px rgba(0,0,0,0.3);' +
-                'background-color: #343648;' +
-                '}' +
-                'body::-webkit-scrollbar' +
-                '{' +
-                'width: 12px;' +
-                'background-color: #F5F5F5;' +
-                '}' +
-                'body::-webkit-scrollbar-thumb' +
-                '{' +
-                'border-radius: 10px;' +
-                '-webkit-box-shadow: inset 0 0 6px rgba(0,0,0,.3);' +
-                'background-color: #555;' +
-                '}''; ' +
-  '    document.getElementsByTagName(''HEAD'')[0].appendChild(style); ' +
-  '  })() ');
-
-  WVBrowser1.ExecuteScript('// Get all iframes on the page ' +
-  'var iframes = document.querySelectorAll(''iframe''); ' +
-  ' ' +
-  '// Iterate over each iframe ' +
-  'for (var i = 0; i < iframes.length; i++) { ' +
-  '  var iframe = iframes[i]; ' +
-  ' ' +
-  '  // Check if iframe is loaded ' +
-  '  if (iframe.contentDocument && iframe.contentDocument.readyState === ''complete''' +
-  ') { ' +
-  '    // Create a <style> element ' +
-  '    var style = iframe.contentDocument.createElement(''style''); ' +
-  '    style.innerHTML = ` ' +
-  '      body::-webkit-scrollbar-track { ' +
-  '        -webkit-box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3)!important; ' +
-  '        background-color: #343648!important; ' +
-  '      } ' +
-  '      body::-webkit-scrollbar { ' +
-  '        width: 12px!important; ' +
-  '        background-color: #F5F5F5!important; ' +
-  '      } ' +
-  '      body::-webkit-scrollbar-thumb { ' +
-  '        border-radius: 10px!important; ' +
-  '        -webkit-box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3)!important; ' +
-  '        background-color: #555!important; ' +
-  '      } ' +
-  '    `; ' +
-  ' ' +
-  '    // Append the <style> element to the iframe''s document ' +
-  '    iframe.contentDocument.head.appendChild(style); ' +
-  '  } ' +
-  '  else { ' +
-  '    // If the iframe is not loaded, you may need to wait for the ''load'' event be' +
-  'fore injecting the styles ' +
-  '    iframe.addEventListener(''load'', function() { ' +
-  '      var style = this.contentDocument.createElement(''style''); ' +
-  '      style.innerHTML = ` ' +
-  '        // Scrollbar styles ' +
-  '      `; ' +
-  '      this.contentDocument.head.appendChild(style); ' +
-  '    }); ' +
-  '  } ' +
-  '} ');
+//  WVBrowser1.ExecuteScript('( ' +
+//  '  function(){ ' +
+//  '    var style = document.createElement(''STYLE''); ' +
+//  '    style.type = ''text/css''; ' +
+//  '    style.innerHTML = ''@charset "utf-8";html{    background: #2a2c3c !important;' +
+//  ' }html * { color: #bbb !important; border-width: 0 !important;  border-color: #2' +
+//  'a2c3c !important; background: rgba(75,81,103,.1) !important; }html a, html a * { text-decorati' +
+//  'on: underline !important; ;  color: #5c8599 !important; }html a:visited, html a:' +
+//  'visited *, html a:active, html a:active * { color: #525f66 !important; }html a:h' +
+//  'over, html a:hover * { color: #cef !important; background: #023 !important; } ht' +
+//  'ml input, html select, html button, html textarea { border: 1px solid #5c5a46 !i' +
+//  'mportant; border-top-color: #43485D !important; border-bottom-color: #43485D !im' +
+//  'portant;  background: #4b5167 !important; }html input[type=button], html input[t' +
+//  'ype=submit], html input[type=reset], html button { border-top-color: #43485D !im' +
+//  'portant; border-bottom-color: #43485D !important; }html input:focus, html select' +
+//  ':focus, html option:focus, html button:focus, html textarea:focus { color: #fff ' +
+//  '!important; border-color: #43485D !important; outline: 2px solid #43485D !import' +
+//  'ant;  background: #4b5167 !important; }html input[type=button]:focus, html input' +
+//  '[type=submit]:focus, html input[type=reset]:focus, html button:focus { border-co' +
+//  'lor: #43485D !important; }html input[type=button]:hover, html input[type=submit]' +
+//  ':hover, html input[type=reset]:hover, html button:hover { background: #0781E0 !i' +
+//  'mportant; border-color: #0781E0 !important; } html input[type=radio] { border-wi' +
+//  'dth: 0 !important;  border-color: #333 !important; background: none !important; ' +
+//  '} html, html body { scrollbar-base-color: #4d4c40 !important; scrollbar-face-col' +
+//  'or: #5c5b3e !important; scrollbar-shadow-color: #5c5b3e !important; scrollbar-hi' +
+//  'ghlight-color: #5c5b3e !important; scrollbar-dlight-color: #5c5b3e !important; s' +
+//  'crollbar-darkshadow-color: #474531 !important; scrollbar-track-color: #4d4c40 !i' +
+//  'mportant; scrollbar-arrow-color: #000 !important; scrollbar-3dlight-color: #7a79' +
+//  '67 !important; }@media all and (-webkit-min-device-pixel-ratio:0) { html body * ' +
+//  '{ -webkit-transition: color 1s ease-in, background-color 2s ease-out !important;' +
+//  ' } html a, html textarea, html input, html select { -webkit-transition: color .4' +
+//  's ease-in, background-color .4s ease-out !important; } html input:focus, html se' +
+//  'lect:focus, html option:focus, html button:focus, html textarea:focus { outline-' +
+//  'style: outset !important; } } .editable{background-color: #9197AE!important;}+' +
+//  'body::-webkit-scrollbar-track' +
+//                '{' +
+//                '-webkit-box-shadow: inset 0 0 6px rgba(0,0,0,0.3);' +
+//                'background-color: #343648;' +
+//                '}' +
+//                'body::-webkit-scrollbar' +
+//                '{' +
+//                'width: 12px;' +
+//                'background-color: #F5F5F5;' +
+//                '}' +
+//                'body::-webkit-scrollbar-thumb' +
+//                '{' +
+//                'border-radius: 10px;' +
+//                '-webkit-box-shadow: inset 0 0 6px rgba(0,0,0,.3);' +
+//                'background-color: #555;' +
+//                '}''; ' +
+//  '    document.getElementsByTagName(''HEAD'')[0].appendChild(style); ' +
+//  '  })() ');
+//
+//  WVBrowser1.ExecuteScript('// Get all iframes on the page ' +
+//  'var iframes = document.querySelectorAll(''iframe''); ' +
+//  ' ' +
+//  '// Iterate over each iframe ' +
+//  'for (var i = 0; i < iframes.length; i++) { ' +
+//  '  var iframe = iframes[i]; ' +
+//  ' ' +
+//  '  // Check if iframe is loaded ' +
+//  '  if (iframe.contentDocument && iframe.contentDocument.readyState === ''complete''' +
+//  ') { ' +
+//  '    // Create a <style> element ' +
+//  '    var style = iframe.contentDocument.createElement(''style''); ' +
+//  '    style.innerHTML = ` ' +
+//  '      body::-webkit-scrollbar-track { ' +
+//  '        -webkit-box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3)!important; ' +
+//  '        background-color: #343648!important; ' +
+//  '      } ' +
+//  '      body::-webkit-scrollbar { ' +
+//  '        width: 12px!important; ' +
+//  '        background-color: #F5F5F5!important; ' +
+//  '      } ' +
+//  '      body::-webkit-scrollbar-thumb { ' +
+//  '        border-radius: 10px!important; ' +
+//  '        -webkit-box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3)!important; ' +
+//  '        background-color: #555!important; ' +
+//  '      } ' +
+//  '    `; ' +
+//  ' ' +
+//  '    // Append the <style> element to the iframe''s document ' +
+//  '    iframe.contentDocument.head.appendChild(style); ' +
+//  '  } ' +
+//  '  else { ' +
+//  '    // If the iframe is not loaded, you may need to wait for the ''load'' event be' +
+//  'fore injecting the styles ' +
+//  '    iframe.addEventListener(''load'', function() { ' +
+//  '      var style = this.contentDocument.createElement(''style''); ' +
+//  '      style.innerHTML = ` ' +
+//  '        // Scrollbar styles ' +
+//  '      `; ' +
+//  '      this.contentDocument.head.appendChild(style); ' +
+//  '    }); ' +
+//  '  } ' +
+//  '} ');
 end;
 
 procedure TfrmMain.WVBrowser1NavigationCompleted(Sender: TObject;
