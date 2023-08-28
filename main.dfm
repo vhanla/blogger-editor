@@ -232,12 +232,15 @@ object frmMain: TfrmMain
             Align = alClient
             KeyOptions = [keyEdit, keyAdd, keyDelete, keyUnique]
             Options = [goFixedVertLine, goFixedHorzLine, goVertLine, goHorzLine, goColSizing, goEditing, goRowSelect, goThumbTracking]
+            PopupMenu = PopupMenu2
             Strings.Strings = (
               '=')
             TabOrder = 0
             TitleCaptions.Strings = (
               'URL'
               'Title')
+            OnDblClick = ValueListEditor1DblClick
+            OnStringsChange = ValueListEditor1StringsChange
             ExplicitTop = 1
             ExplicitHeight = 168
             ColWidths = (
@@ -460,5 +463,69 @@ object frmMain: TfrmMain
   object SavePictureDialog1: TSavePictureDialog
     Left = 712
     Top = 144
+  end
+  object PopupMenu2: TPopupMenu
+    Left = 448
+    Top = 480
+    object Inserturlonly1: TMenuItem
+      Caption = 'Insert with Title'
+      object Openinotherwindow1: TMenuItem
+        Caption = 'Open in other window'
+        object NoFollow2: TMenuItem
+          Tag = 28
+          Caption = 'No Follow'
+          OnClick = InsertUrlToBlogger
+        end
+        object Sponsored2: TMenuItem
+          Tag = 26
+          Caption = 'Sponsored'
+          OnClick = InsertUrlToBlogger
+        end
+        object gcu2: TMenuItem
+          Tag = 25
+          Caption = 'gcu'
+          OnClick = InsertUrlToBlogger
+        end
+        object NoRel1: TMenuItem
+          Tag = 24
+          Caption = 'No Rel'
+          OnClick = InsertUrlToBlogger
+        end
+      end
+      object Current1: TMenuItem
+        Caption = 'Open in current'
+        object NoFollow1: TMenuItem
+          Tag = 20
+          Caption = 'No Follow'
+          OnClick = InsertUrlToBlogger
+        end
+        object Sponsored1: TMenuItem
+          Tag = 18
+          Caption = 'Sponsored'
+          OnClick = InsertUrlToBlogger
+        end
+        object GCU1: TMenuItem
+          Tag = 17
+          Caption = 'GCU'
+          OnClick = InsertUrlToBlogger
+        end
+        object NoRel2: TMenuItem
+          Tag = 16
+          Caption = 'No Rel'
+          OnClick = InsertUrlToBlogger
+        end
+      end
+    end
+    object Insert1: TMenuItem
+      Caption = 'Insert URL only'
+      OnClick = InsertUrlToBlogger
+    end
+    object N1: TMenuItem
+      Caption = '-'
+    end
+    object Deletethis1: TMenuItem
+      Caption = 'Delete'
+      OnClick = Deletethis1Click
+    end
   end
 end

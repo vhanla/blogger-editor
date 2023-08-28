@@ -55,6 +55,21 @@ type
     lbeNewURL: TLabeledEdit;
     btnPasteURL: TButton;
     btnDiscarPic: TButton;
+    PopupMenu2: TPopupMenu;
+    Inserturlonly1: TMenuItem;
+    Insert1: TMenuItem;
+    N1: TMenuItem;
+    Deletethis1: TMenuItem;
+    Current1: TMenuItem;
+    Openinotherwindow1: TMenuItem;
+    NoFollow1: TMenuItem;
+    Sponsored1: TMenuItem;
+    GCU1: TMenuItem;
+    NoFollow2: TMenuItem;
+    Sponsored2: TMenuItem;
+    gcu2: TMenuItem;
+    NoRel1: TMenuItem;
+    NoRel2: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
     procedure WVBrowser1AfterCreated(Sender: TObject);
@@ -94,6 +109,12 @@ type
     procedure btnSaveClipPNGClick(Sender: TObject);
     procedure btnPasteURLClick(Sender: TObject);
     procedure btnDiscarPicClick(Sender: TObject);
+    procedure ValueListEditor1DblClick(Sender: TObject);
+
+    // custom
+    procedure InsertUrlToBlogger(Sender: TObject);
+    procedure Deletethis1Click(Sender: TObject);
+    procedure ValueListEditor1StringsChange(Sender: TObject);
   private
     { Private declarations }
     FGetHeaders: Boolean;
@@ -102,11 +123,16 @@ type
     // Settings
     FBlogsPath: string;
     FBlogDomain: string;
+    FEditing: Boolean;
+    FCurrentEditingPath: string;
 
     procedure UpdateList(APath: string);
 
     procedure GetClipboard(var Msg: TMessage); message WM_DRAWCLIPBOARD;
     procedure ChangeCBChain(var Msg: TMessage); message WM_CHANGECBCHAIN;
+
+    procedure LoadSourcesFromJSON(const fpName: string);
+    procedure SaveSourcesToJSON(const fpName: string);
   public
     { Public declarations }
     property BlogsPath: string read FBlogsPath;
@@ -175,7 +201,7 @@ begin
 
     if not newTitle.IsEmpty then
     begin
-      ValueListEditor1.InsertRow(EncodeURL(newURL), newTitle, False);
+      ValueListEditor1.InsertRow(EncodeURL(newURL), newTitle, True);
     end;
   end
   else
@@ -327,6 +353,14 @@ begin
   end;
 end;
 
+procedure TfrmMain.Deletethis1Click(Sender: TObject);
+begin
+  if (ValueListEditor1.RowCount > 0) and (ValueListEditor1.Row > 0) then
+  begin
+    ValueListEditor1.DeleteRow(ValueListEditor1.Row);
+  end;
+end;
+
 procedure TfrmMain.EditPaste1Execute(Sender: TObject);
 begin
   if Clipboard.HasFormat(CF_BITMAP) then
@@ -427,15 +461,148 @@ begin
     SendMessage(ClipNext, WM_DRAWCLIPBOARD, 0, 0);
 end;
 
+procedure TfrmMain.InsertUrlToBlogger(Sender: TObject);
+const
+  URLONLY = 0;
+  URLTITLE = 16;
+  URLOPENNEWWINDOW = 8;
+  //rels
+  URLNOFOLLOW = 4;
+  URLSPONSORED = 2;
+  URLGCU = 1;
+var
+  tag: Integer;
+  href: string;
+  prevrels: string;
+  hasrels: Boolean;
+begin
+  href := '<a';
+  if Sender is TMenuItem then
+  begin
+    tag := TMenuItem(Sender).Tag;
+
+    //"parse" rels
+    prevrels := '';
+
+    if tag and URLNOFOLLOW = URLNOFOLLOW then
+    begin
+      if not hasrels then href := href + ' rel="';
+      hasrels := True;
+      href := href + prevrels +'nofollow';
+      prevrels := ' ';
+    end;
+
+    if tag and URLSPONSORED = URLSPONSORED then
+    begin
+      if not hasrels then href := href + ' rel="';
+      hasrels := True;
+      href := href + prevrels + 'sponsored';
+      prevrels := ' ';
+    end;
+
+    if tag and URLGCU = URLGCU then
+    begin
+      if not hasrels then href := href + ' rel="';
+      hasrels := True;
+      href := href + 'gcu';
+//      prevrels := ' ';
+    end;
+
+    if hasrels then
+      href := href + '"';
+
+    //"parse" target _blank
+    if tag and URLOPENNEWWINDOW = URLOPENNEWWINDOW then
+    begin
+      href := href + ' target="_blank"';
+    end;
+
+    //paste the url
+    if (ValueListEditor1.RowCount > 0) and (ValueListEditor1.Row > 0) then
+    begin
+      var url := ValueListEditor1.Keys[ValueListEditor1.Row];
+      var title := ValueListEditor1.Values[url];
+      // let's append this to the blogger editor
+      if not url.IsEmpty then
+      begin
+        href := href + ' href="' + DecodeURL(url) + '">';
+        if tag and URLTITLE = URLTITLE then
+          href := href + title + '</a>'
+        else
+          href := href + DecodeURL(url) + '</a>';
+
+        WVBrowser1.ExecuteScript('document.querySelectorAll(''iframe.editable'')[0].contentWindow.document.execComma' +
+        'nd(''insertHTML'', false, '''+href+''') ');
+      end;
+    end;
+
+  end;
+end;
+
 procedure TfrmMain.JvAppEvents1Activate(Sender: TObject);
 begin
   Winapi.Windows.SetFocus(WVWindowParent1.ChildWindowHandle);
+end;
+
+procedure TfrmMain.LoadSourcesFromJSON(const fpName: string);
+var
+  json: TJSONObject;
+  pair: TJSONPair;
+begin
+  if not FileExists(fpName) then Exit; //#TODO handle as possible error
+
+  var ts := TStringList.Create;
+  try
+    ts.LoadFromFile(fpName);
+    json := TJSONObject.Create;
+    try
+      if json.Parse(BytesOf(ts.Text), 0) > 0 then // valid json
+      begin
+        ValueListEditor1.Strings.BeginUpdate;
+        try
+          ValueListEditor1.Strings.Clear;
+          for pair in json do
+            ValueListEditor1.InsertRow(pair.JsonString.Value, pair.JsonValue.Value, True);
+        finally
+          ValueListEditor1.Strings.EndUpdate;
+        end;
+      end;
+    finally
+      json.Free;
+    end;
+  finally
+    ts.Free;
+  end;
 end;
 
 procedure TfrmMain.rkSmartPath1PathChanged(Sender: TObject);
 begin
   VirtualMultiPathExplorerEasyListview1.RootFolderCustomPath := rkSmartPath1.Path;
   UpdateList(rkSmartPath1.Path);
+end;
+
+procedure TfrmMain.SaveSourcesToJSON(const fpName: string);
+var
+  json: TJSONObject;
+  I: Integer;
+begin
+  json := TJSONObject.Create;
+  try
+    for I := 1 to ValueListEditor1.RowCount - 1 do
+    begin
+      json.AddPair(ValueListEditor1.Keys[I], ValueListEditor1.Values[ValueListEditor1.Keys[I]]);
+    end;
+
+    var ls := TStringList.Create;
+    try
+      ls.Text := json.ToString;
+      ls.SaveToFile(fpName);
+    finally
+      ls.Free;
+    end;
+  finally
+    json.Free;
+  end;
 end;
 
 procedure TfrmMain.Timer1Timer(Sender: TObject);
@@ -485,6 +652,31 @@ begin
   finally
     VirtualMultiPathExplorerEasyListview1.EndUpdate;
   end;
+end;
+
+procedure TfrmMain.ValueListEditor1DblClick(Sender: TObject);
+var
+  url, title: string;
+begin
+  if (ValueListEditor1.RowCount > 0) and (ValueListEditor1.Row > 0) then
+  begin
+    url := ValueListEditor1.Keys[ValueListEditor1.Row];
+    title := ValueListEditor1.Values[url];
+    // let's append this to the blogger editor
+    if not url.IsEmpty then
+    begin
+      WVBrowser1.ExecuteScript('document.querySelectorAll(''iframe.editable'')[0].contentWindow.document.execComma' +
+      'nd(''insertHTML'', false, ''<a href="'+decodeURL(url)+'" target="_blank">'+title+'</a>'') ');
+    end;
+  end;
+
+end;
+
+procedure TfrmMain.ValueListEditor1StringsChange(Sender: TObject);
+begin
+  //save to json too
+  if DirectoryExists(fCurrentEditingPath) then
+    SaveSourcesToJSON(fcurrentEditingPath + '\sources.json');
 end;
 
 procedure TfrmMain.VirtualMultiPathExplorerEasyListview1ItemClick(
@@ -569,6 +761,16 @@ WVBrowser1.ExecuteScript(
   '}));'
 );
 
+  FEditing := FCurrentURL.Contains('/blog/post/edit/');
+  ValueListEditor1.Enabled := FEditing;
+  if not FEditing then
+  begin
+    FCurrentEditingPath := '';
+
+    ValueListEditor1.Strings.BeginUpdate;
+    ValueListEditor1.Strings.Clear;
+    ValueListEditor1.Strings.EndUpdate;
+  end;
 end;
 
 procedure TfrmMain.WVBrowser1DOMContentLoaded(Sender: TObject;
@@ -755,7 +957,12 @@ begin
             end;
             //
             if finalPath <> '' then
+            begin
               rkSmartPath1.Path := IncludeTrailingPathDelimiter(BlogsPath) + BlogDomain + '\' + finalPath;
+              FCurrentEditingPath := rkSmartPath1.Path;
+              if FileExists(rkSmartPath1.Path + '\sources.json') then
+                LoadSourcesFromJSON(rkSmartPath1.Path + '\sources.json');
+            end;
           end;
         end;
       end;
